@@ -2,7 +2,7 @@
   "name": "Nonogram",
   "short_name": "Nonogram",
   "description": "Logic puzzle game",
-  "start_url": "/",
+  "start_url": "/nonogram/",
   "display": "standalone",
   "background_color": "#0F0F0F",
   "theme_color": "#0F0F0F",

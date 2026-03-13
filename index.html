@@ -1,3 +1,4 @@
+<!-- Copyright 2026 Right Now Studio. All rights reserved. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Nonogram"/>
   <meta name="theme-color" content="#0F0F0F"/>
-  <link rel="manifest" href="/manifest.json"/>
+  <link rel="manifest" href="manifest.json"/>
   <title>Nonogram</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -879,7 +880,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", function() {
-    navigator.serviceWorker.register("/sw.js").catch(function() {});
+    navigator.serviceWorker.register("sw.js").catch(function() {});
   });
 }
   </script>

@@ -11,41 +11,26 @@
   <title>Nonogram</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #root { height: 100%; width: 100%; }
-    body { background: #0F0F0F; overscroll-behavior: none; -webkit-text-size-adjust: 100%; font-family: monospace; }
-    #err { display:none; color:#ff6b6b; background:#1a1a1a; padding:20px; font-size:13px; white-space:pre-wrap; word-break:break-all; }
-    #status { color:#5DB87A; padding:20px; font-size:12px; }
+    html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+    body { background: #0F0F0F; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
   </style>
 </head>
 <body>
-  <div id="status">Loading React...</div>
-  <div id="err"></div>
   <div id="root"></div>
 
-  <script>
-    window.onerror = function(msg, src, line, col, err) {
-      var el = document.getElementById('err');
-      el.style.display = 'block';
-      el.textContent = 'ERROR: ' + msg + '\nLine: ' + line + '\nSource: ' + src + '\n\n' + (err && err.stack ? err.stack : '');
-      document.getElementById('status').textContent = 'Failed.';
-    };
-  </script>
+  <!-- Eruda mobile console - tap the floating button bottom-right to open -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
 
-  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"
-    onerror="document.getElementById('err').style.display='block';document.getElementById('err').textContent='Failed to load React from CDN. Check internet connection.';"></script>
-  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"
-    onerror="document.getElementById('err').style.display='block';document.getElementById('err').textContent='Failed to load ReactDOM from CDN.';"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
   <script>
-    document.getElementById('status').textContent = 'React loaded: ' + (typeof React !== 'undefined' ? React.version : 'MISSING') + ' | ReactDOM: ' + (typeof ReactDOM !== 'undefined' ? 'ok' : 'MISSING');
-  </script>
-
-  <script>
-    try {
-      var useState = React.useState;
-      var useEffect = React.useEffect;
-      var useRef = React.useRef;
-      var useCallback = React.useCallback;
+    console.log('React:', typeof React !== 'undefined' ? React.version : 'MISSING');
+    console.log('ReactDOM:', typeof ReactDOM !== 'undefined' ? 'ok' : 'MISSING');
+    var useState = React.useState;
+    var useEffect = React.useEffect;
+    var useRef = React.useRef;
+    var useCallback = React.useCallback;
 // Cell values: 0=empty 1=filled 2=cross 3=auto-cross 4=marker
 // ── Puzzle data ───────────────────────────────────────────────────────────────
 function make15(fn) {
@@ -1048,13 +1033,12 @@ function Settings(props) {
         !sett.adsRemoved && React.createElement(AdBanner, { T: T, label: "Ad - Settings" }),
         React.createElement("div", { style: { marginTop: "auto", paddingTop: 40, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.3-alpha")));
 }
-      document.getElementById('status').textContent = 'App defined. Mounting...';
+    console.log('App defined, mounting...');
+    try {
       ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
-      document.getElementById('status').style.display = 'none';
+      console.log('Mount successful');
     } catch(e) {
-      document.getElementById('err').style.display = 'block';
-      document.getElementById('err').textContent = 'JS ERROR: ' + e.message + '\n\n' + e.stack;
-      document.getElementById('status').textContent = 'Mount failed.';
+      console.error('Mount failed:', e);
     }
   </script>
 </body>

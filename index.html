@@ -8,23 +8,44 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Nonogram"/>
   <meta name="theme-color" content="#0F0F0F"/>
-  <link rel="manifest" href="manifest.json"/>
   <title>Nonogram</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body, #root { height: 100%; width: 100%; overflow: hidden; }
-    body { background: #0F0F0F; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+    html, body, #root { height: 100%; width: 100%; }
+    body { background: #0F0F0F; overscroll-behavior: none; -webkit-text-size-adjust: 100%; font-family: monospace; }
+    #err { display:none; color:#ff6b6b; background:#1a1a1a; padding:20px; font-size:13px; white-space:pre-wrap; word-break:break-all; }
+    #status { color:#5DB87A; padding:20px; font-size:12px; }
   </style>
 </head>
 <body>
+  <div id="status">Loading React...</div>
+  <div id="err"></div>
   <div id="root"></div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
   <script>
-var useState = React.useState;
-var useEffect = React.useEffect;
-var useRef = React.useRef;
-var useCallback = React.useCallback;
+    window.onerror = function(msg, src, line, col, err) {
+      var el = document.getElementById('err');
+      el.style.display = 'block';
+      el.textContent = 'ERROR: ' + msg + '\nLine: ' + line + '\nSource: ' + src + '\n\n' + (err && err.stack ? err.stack : '');
+      document.getElementById('status').textContent = 'Failed.';
+    };
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"
+    onerror="document.getElementById('err').style.display='block';document.getElementById('err').textContent='Failed to load React from CDN. Check internet connection.';"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"
+    onerror="document.getElementById('err').style.display='block';document.getElementById('err').textContent='Failed to load ReactDOM from CDN.';"></script>
+
+  <script>
+    document.getElementById('status').textContent = 'React loaded: ' + (typeof React !== 'undefined' ? React.version : 'MISSING') + ' | ReactDOM: ' + (typeof ReactDOM !== 'undefined' ? 'ok' : 'MISSING');
+  </script>
+
+  <script>
+    try {
+      var useState = React.useState;
+      var useEffect = React.useEffect;
+      var useRef = React.useRef;
+      var useCallback = React.useCallback;
 // Cell values: 0=empty 1=filled 2=cross 3=auto-cross 4=marker
 // ── Puzzle data ───────────────────────────────────────────────────────────────
 function make15(fn) {
@@ -1027,12 +1048,14 @@ function Settings(props) {
         !sett.adsRemoved && React.createElement(AdBanner, { T: T, label: "Ad - Settings" }),
         React.createElement("div", { style: { marginTop: "auto", paddingTop: 40, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.3-alpha")));
 }
-ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", function() {
-    navigator.serviceWorker.register("sw.js").catch(function() {});
-  });
-}
+      document.getElementById('status').textContent = 'App defined. Mounting...';
+      ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+      document.getElementById('status').style.display = 'none';
+    } catch(e) {
+      document.getElementById('err').style.display = 'block';
+      document.getElementById('err').textContent = 'JS ERROR: ' + e.message + '\n\n' + e.stack;
+      document.getElementById('status').textContent = 'Mount failed.';
+    }
   </script>
 </body>
 </html>

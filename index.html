@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Nonogram"/>
+  <meta name="theme-color" content="#0F0F0F"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <title>Nonogram</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+    body { background: #0F0F0F; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+
+// Cell values: 0=empty 1=filled 2=cross 3=auto-cross 4=marker
+
+// ── Puzzle data ───────────────────────────────────────────────────────────────
+function make15(fn) {
+  return Array.from({length:15}, function(_,r) {
+    return Array.from({length:15}, function(_,c) { return fn(r,c) ? 1 : 0; });
+  });
+}
+
+var CATS = [
+  {id:"5x5",label:"5x5",desc:"Beginner",puzzles:[
+    {name:"Cross",  size:5,solution:[[0,0,1,0,0],[0,0,1,0,0],[1,1,1,1,1],[0,0,1,0,0],[0,0,1,0,0]]},
+    {name:"Heart",  size:5,solution:[[0,1,0,1,0],[1,1,1,1,1],[1,1,1,1,1],[0,1,1,1,0],[0,0,1,0,0]]},
+    {name:"Diamond",size:5,solution:[[0,0,1,0,0],[0,1,1,1,0],[1,1,1,1,1],[0,1,1,1,0],[0,0,1,0,0]]},
+    {name:"House",  size:5,solution:[[0,0,1,0,0],[0,1,1,1,0],[1,1,1,1,1],[1,1,0,1,1],[1,1,0,1,1]]},
+  ]},
+  {id:"10x10",label:"10x10",desc:"Intermediate",puzzles:[
+    {name:"Cross",size:10,solution:[[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,0,0,0,0],[1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,0,0,0,0],[0,0,0,0,1,1,0,0,0,0]]},
+    {name:"Diamond",size:10,solution:[[0,0,0,0,1,1,0,0,0,0],[0,0,0,1,1,1,1,0,0,0],[0,0,1,1,1,1,1,1,0,0],[0,1,1,1,1,1,1,1,1,0],[1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1],[0,1,1,1,1,1,1,1,1,0],[0,0,1,1,1,1,1,1,0,0],[0,0,0,1,1,1,1,0,0,0],[0,0,0,0,1,1,0,0,0,0]]},
+    {name:"Frame",size:10,solution:[[1,1,1,1,1,1,1,1,1,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,1,1,1,1,1,1,1,1,1]]},
+    {name:"Letter L",size:10,solution:[[1,1,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0],[1,1,0,0,0,0,0,0,0,0],[1,1,1,1,1,1,1,1,1,1],[1,1,1,1,1,1,1,1,1,1]]},
+    {name:"Smile",size:10,solution:[[0,0,1,1,1,1,1,1,0,0],[0,1,0,0,0,0,0,0,1,0],[1,0,0,0,0,0,0,0,0,1],[1,0,0,1,0,0,1,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,0,0,0,0,0,0,0,1],[1,0,1,0,0,0,0,1,0,1],[1,0,0,1,1,1,1,0,0,1],[0,1,0,0,0,0,0,0,1,0],[0,0,1,1,1,1,1,1,0,0]]},
+  ]},
+  {id:"15x15",label:"15x15",desc:"Advanced",puzzles:[
+    {name:"Cross",  size:15,solution:make15(function(r,c){return c===7||c===8||r===7||r===8;})},
+    {name:"Diamond",size:15,solution:make15(function(r,c){return Math.abs(r-7)+Math.abs(c-7)<=7;})},
+  ]},
+];
+
+// ── Themes ────────────────────────────────────────────────────────────────────
+var DARK = {bg:"#0F0F0F",sur:"#1A1A1A",bdr:"#2C2C2C",bdrS:"#3C3C3C",txt:"#E8E4DC",sub:"#9A9A9A",dim:"#6E6E6E",acc:"#5DB87A",accBg:"#1A3327",cN:"#E8E4DC",cD:"#606060",fill:"#E8E4DC",empty:"#1A1A1A",xM:"#727272",xA:"#3A3A3A",mk:"#5DB87A",bBg:"#E8E4DC",bFg:"#0F0F0F",ring:"#5DB87A",err:"#E05555"};
+var LITE = {bg:"#F0ECE4",sur:"#FFFFFF",bdr:"#D4CFC4",bdrS:"#ACA79C",txt:"#1A1A1A",sub:"#4A4640",dim:"#706C65",acc:"#1F7A42",accBg:"#D8EEE2",cN:"#1A1A1A",cD:"#5E5A56",fill:"#1A1A1A",empty:"#FFFFFF",xM:"#706C65",xA:"#B0ACA6",mk:"#1F7A42",bBg:"#1A1A1A",bFg:"#FFFFFF",ring:"#1F7A42",err:"#C0392B"};
+function getTheme(p) {
+  if (p === "dark") return DARK;
+  if (p === "light") return LITE;
+  var mq = window.matchMedia && window.matchMedia("(prefers-color-scheme:light)");
+  return (mq && mq.matches) ? LITE : DARK;
+}
+
+// ── Logic ─────────────────────────────────────────────────────────────────────
+function getClues(lines) {
+  return lines.map(function(line) {
+    var c = [], n = 0;
+    for (var i = 0; i < line.length; i++) {
+      if (line[i]) { n++; } else if (n) { c.push(n); n = 0; }
+    }
+    if (n) c.push(n);
+    return c.length ? c : [0];
+  });
+}
+function getCols(sol) { return sol[0].map(function(_,c){return sol.map(function(r){return r[c];});}); }
+function emptyGrid(s) { return Array.from({length:s},function(){return Array(s).fill(0);}); }
+function isSolved(g,sol) { return sol.every(function(row,r){return row.every(function(v,c){return (v===1)===(g[r][c]===1);});}); }
+function clueDone(ca,line) {
+  var filled = line.map(function(v){return v===1?1:0;});
+  return JSON.stringify(getClues([filled])[0]) === JSON.stringify(ca);
+}
+function applyAutoX(grid,sol,on) {
+  if (!on) return grid;
+  var rc = getClues(sol);
+  var next = grid.map(function(r){return r.slice();});
+  for (var r = 0; r < sol.length; r++) {
+    var done = clueDone(rc[r], next[r]);
+    next[r] = next[r].map(function(v) {
+      if (done && (v===0||v===4)) return 3;
+      if (!done && v===3) return 0;
+      return v;
+    });
+  }
+  return next;
+}
+function applyCell(g,r,c,a) {
+  var n = g.map(function(row){return row.slice();});
+  if (a==="fill")    n[r][c]=1;
+  else if (a==="erase")   n[r][c]=0;
+  else if (a==="cross")   n[r][c]=2;
+  else if (a==="uncross") n[r][c]=0;
+  else if (a==="mark")    n[r][c]=4;
+  else if (a==="unmark")  n[r][c]=0;
+  return n;
+}
+function rebuildPath(orig,path,action,sol,on) {
+  var g = orig.map(function(r){return r.slice();});
+  for (var i = 0; i < path.length; i++) { g = applyCell(g,path[i].r,path[i].c,action); }
+  return applyAutoX(g,sol,on);
+}
+function getAction(val,mode) {
+  if (mode==="fill")   return val===1 ? "erase" : "fill";
+  if (mode==="cross")  return val===1 ? null : val===2 ? "uncross" : "cross";
+  if (mode==="marker") return val===1 ? null : val===4 ? "unmark" : "mark";
+  return null;
+}
+function fmtTime(s) { return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); }
+function cellDims(size) {
+  if (size<=5)  return {C:44,cW:32,cF:13,xF:15};
+  if (size<=10) return {C:30,cW:22,cF:11,xF:11};
+  return              {C:20,cW:16,cF:9,xF:9};
+}
+
+// ── Storage ───────────────────────────────────────────────────────────────────
+var SK="ngram-v9", CK="ngram-c-v9";
+function loadSave() {
+  return new Promise(function(res) {
+    
+    try { var v=localStorage.getItem(SK); res(v?JSON.parse(v):null); } catch(e){ res(null); }
+  });
+}
+function writeSave(d) { try { localStorage.setItem(SK,JSON.stringify(d)); } catch(e){} }
+function loadCustom() {
+  return new Promise(function(res) {
+    
+    try { var v=localStorage.getItem(CK); res(v?JSON.parse(v):[]); } catch(e){ res([]); }
+  });
+}
+function saveCustom(arr) { try { localStorage.setItem(CK,JSON.stringify(arr)); } catch(e){} }
+function deleteAll() {
+  
+  try { localStorage.removeItem(SK); localStorage.removeItem(CK); } catch(e){} return Promise.resolve();
+}
+
+// ── Tap hook ──────────────────────────────────────────────────────────────────
+function useTap() {
+  var ref = useRef(null);
+  var ts = useCallback(function(e) {
+    ref.current = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+  },[]);
+  var te = useCallback(function(fn) {
+    return function(e) {
+      if (!ref.current) return;
+      var dx = Math.abs(e.changedTouches[0].clientX - ref.current.x);
+      var dy = Math.abs(e.changedTouches[0].clientY - ref.current.y);
+      ref.current = null;
+      if (dx < 8 && dy < 10) { e.preventDefault(); fn(); }
+    };
+  },[]);
+  return {ts:ts, te:te};
+}
+
+var IS = {theme:"system",showTimer:true,autoFillCrosses:true,adsRemoved:false};
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  var s = useState("menu"); var screen = s[0]; var setScreen = s[1];
+  var s2 = useState("5x5"); var catId = s2[0]; var setCatId = s2[1];
+  var s3 = useState(""); var puzId = s3[0]; var setPuzId = s3[1];
+  var s4 = useState("menu"); var sfrom = s4[0]; var setSfrom = s4[1];
+  var s5 = useState({}); var grids = s5[0]; var setGrids = s5[1];
+  var s6 = useState({}); var solvedMap = s6[0]; var setSolvedMap = s6[1];
+  var s7 = useState({}); var timers = s7[0]; var setTimers = s7[1];
+  var s8 = useState(IS); var sett = s8[0]; var setSett = s8[1];
+  var s9 = useState([]); var custom = s9[0]; var setCustom = s9[1];
+  var s10 = useState(false); var running = s10[0]; var setRunning = s10[1];
+  var s11 = useState(false); var loaded = s11[0]; var setLoaded = s11[1];
+  var histRef = useRef({});
+  var s12 = useState({}); var ptrs = s12[0]; var setPtrs = s12[1];
+  var T = getTheme(sett.theme);
+
+  var allCats = custom.length > 0
+    ? CATS.concat([{id:"custom",label:"My Puzzles",desc:"Created by you",puzzles:custom}])
+    : CATS;
+  var pmap = {};
+  allCats.forEach(function(cat) {
+    cat.puzzles.forEach(function(p,i) { pmap[cat.id+"_"+i] = Object.assign({},p,{id:cat.id+"_"+i,catId:cat.id}); });
+  });
+
+  useEffect(function() {
+    Promise.all([loadSave(),loadCustom()]).then(function(results) {
+      var data = results[0]; var cust = results[1];
+      if (data) {
+        if (data.grids) {
+          setGrids(data.grids);
+          Object.keys(data.grids).forEach(function(id){ histRef.current[id]=[data.grids[id]]; });
+          var pm = {};
+          Object.keys(data.grids).forEach(function(id){ pm[id]=0; });
+          setPtrs(pm);
+        }
+        if (data.solved) setSolvedMap(data.solved);
+        if (data.timers) setTimers(data.timers);
+        if (data.settings) setSett(function(prev){ return Object.assign({},prev,data.settings); });
+      }
+      if (cust && cust.length) setCustom(cust);
+      setLoaded(true);
+    });
+  },[]);
+
+  useEffect(function(){
+    if (!loaded) return;
+    writeSave({grids:grids,solved:solvedMap,timers:timers,settings:sett});
+  },[grids,solvedMap,timers,sett,loaded]);
+
+  useEffect(function(){
+    setRunning(screen==="puzzle" && !solvedMap[puzId]);
+  },[screen,puzId,solvedMap]);
+
+  function getGrid(id) { return grids[id] || emptyGrid((pmap[id]&&pmap[id].size)||5); }
+
+  function liveUpdate(id,g) { setGrids(function(prev){ var n=Object.assign({},prev); n[id]=g; return n; }); }
+
+  function commitDrag(id,g) {
+    var ptr = ptrs[id]||0;
+    var h = histRef.current[id]||[];
+    histRef.current[id] = h.slice(0,ptr+1).concat([g]);
+    setPtrs(function(prev){ var n=Object.assign({},prev); n[id]=ptr+1; return n; });
+    setGrids(function(prev){ var n=Object.assign({},prev); n[id]=g; return n; });
+    if (pmap[id] && isSolved(g,pmap[id].solution)) {
+      setSolvedMap(function(prev){ var n=Object.assign({},prev); n[id]=true; return n; });
+    }
+  }
+
+  function doUndo(id) {
+    var ptr = ptrs[id]||0; if (ptr<=0) return;
+    var g = histRef.current[id][ptr-1];
+    setPtrs(function(prev){ var n=Object.assign({},prev); n[id]=ptr-1; return n; });
+    setGrids(function(prev){ var n=Object.assign({},prev); n[id]=g; return n; });
+    if (pmap[id] && !isSolved(g,pmap[id].solution)) {
+      setSolvedMap(function(prev){ var n=Object.assign({},prev); n[id]=false; return n; });
+    }
+  }
+
+  function doRedo(id) {
+    var ptr = ptrs[id]||0; var h = histRef.current[id]||[];
+    if (ptr>=h.length-1) return;
+    setPtrs(function(prev){ var n=Object.assign({},prev); n[id]=ptr+1; return n; });
+    setGrids(function(prev){ var n=Object.assign({},prev); n[id]=h[ptr+1]; return n; });
+  }
+
+  function doReset(id) {
+    var f = emptyGrid(pmap[id].size);
+    histRef.current[id]=[f];
+    setPtrs(function(prev){ var n=Object.assign({},prev); n[id]=0; return n; });
+    setGrids(function(prev){ var n=Object.assign({},prev); n[id]=f; return n; });
+    setSolvedMap(function(prev){ var n=Object.assign({},prev); n[id]=false; return n; });
+    setTimers(function(prev){ var n=Object.assign({},prev); n[id]=0; return n; });
+  }
+
+  function masterReset() {
+    deleteAll().then(function() {
+      histRef.current={};setPtrs({});setGrids({});setSolvedMap({});setTimers({});
+      setSett(IS);setCustom([]);setPuzId("");setCatId("5x5");setScreen("menu");
+    });
+  }
+
+  function addCustom(p) {
+    var updated = custom.concat([p]);
+    setCustom(updated); saveCustom(updated);
+  }
+  function delCustom(idx) {
+    var updated = custom.filter(function(_,i){return i!==idx;});
+    setCustom(updated); saveCustom(updated);
+  }
+
+  function ensurePuzzle(id) {
+    if (histRef.current[id]) return;
+    var puz = pmap[id]; if (!puz) return;
+    var f = emptyGrid(puz.size);
+    histRef.current[id]=[f];
+    setPtrs(function(prev){ var n=Object.assign({},prev); n[id]=0; return n; });
+    setGrids(function(prev){ var n=Object.assign({},prev); n[id]=f; return n; });
+  }
+
+  function openPuz(id) { ensurePuzzle(id); setPuzId(id); setScreen("puzzle"); }
+  function openCat(id) { setCatId(id); setScreen("category"); }
+  function goBack() {
+    if (screen==="settings") { setScreen(sfrom==="puzzle"?"puzzle":"menu"); return; }
+    if (screen==="puzzle")   { setScreen("category"); return; }
+    setScreen("menu");
+  }
+
+  var cat = allCats.filter(function(c){return c.id===catId;})[0];
+  var puz = pmap[puzId];
+  var puzCat = puz ? allCats.filter(function(c){return c.id===puz.catId;})[0] : null;
+  var puzIdx = puzCat ? puzCat.puzzles.findIndex(function(_,i){return puz.catId+"_"+i===puzId;}) : -1;
+  var nextId = (puzIdx>=0 && puzIdx<((puzCat&&puzCat.puzzles.length)||0)-1) ? puz.catId+"_"+(puzIdx+1) : null;
+  var canU = (ptrs[puzId]||0)>0;
+  var canR = (ptrs[puzId]||0)<((histRef.current[puzId]&&histRef.current[puzId].length)||1)-1;
+  var totS = Object.values(solvedMap).filter(Boolean).length;
+  var totP = Object.values(pmap).length;
+
+  function catProg(id) {
+    var c = allCats.filter(function(x){return x.id===id;})[0];
+    if (!c) return {d:0,t:0};
+    return {t:c.puzzles.length, d:c.puzzles.filter(function(_,i){return solvedMap[id+"_"+i];}).length};
+  }
+
+  if (screen==="creator") {
+    return React.createElement(Creator, {T:T, onSave:function(p){addCustom(p);setScreen("menu");}, onBack:function(){setScreen("menu");}});
+  }
+  if (screen==="settings") {
+    return React.createElement(Settings, {T:T, sett:sett, onSet:function(k,v){setSett(function(prev){var n=Object.assign({},prev);n[k]=v;return n;});}, onReset:masterReset, onBack:goBack});
+  }
+  if (screen==="puzzle" && puz) {
+    return React.createElement(PuzzleScreen, {key:puzId, puzzle:puz, grid:getGrid(puzId), isSolved:!!solvedMap[puzId], initTimer:timers[puzId]||0, running:running, T:T, sett:sett, canU:canU, canR:canR, onLive:function(g){liveUpdate(puzId,g);}, onCommit:function(g){commitDrag(puzId,g);}, onUndo:function(){doUndo(puzId);}, onRedo:function(){doRedo(puzId);}, onReset:function(){doReset(puzId);}, onTimer:function(s){setTimers(function(prev){var n=Object.assign({},prev);n[puzId]=s;return n;});}, onSettings:function(){setSfrom("puzzle");setScreen("settings");}, onBack:goBack, onNext:nextId?function(){openPuz(nextId);}:null});
+  }
+  if (screen==="category" && cat) {
+    return React.createElement(Category, {T:T, cat:cat, solvedMap:solvedMap, onSelect:function(i){openPuz(cat.id+"_"+i);}, onBack:goBack, onDel:cat.id==="custom"?delCustom:null});
+  }
+  return React.createElement(Menu, {T:T, cats:allCats, totS:totS, totP:totP, catProg:catProg, onCat:openCat, onSettings:function(){setSfrom("menu");setScreen("settings");}, onCreate:function(){setScreen("creator");}});
+}
+
+// ── AdBanner ──────────────────────────────────────────────────────────────────
+function AdBanner(props) {
+  var T=props.T, label=props.label||"Ad";
+  return (
+    <div style={{width:"100%",maxWidth:320,height:52,border:"1px dashed "+T.bdr,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+      <div style={{fontSize:9,color:T.dim,letterSpacing:"0.16em",textTransform:"uppercase"}}>{label}</div>
+      <div style={{fontSize:9,color:T.dim,opacity:0.5}}>320x50</div>
+    </div>
+  );
+}
+
+// ── Menu ──────────────────────────────────────────────────────────────────────
+function Menu(props) {
+  var T=props.T, cats=props.cats, totS=props.totS, totP=props.totP, catProg=props.catProg, onCat=props.onCat, onSettings=props.onSettings, onCreate=props.onCreate;
+  var tap = useTap();
+  var pct = totP>0 ? (totS/totP)*100 : 0;
+  return (
+    <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",padding:"48px 24px 40px",fontFamily:"'Courier New',monospace",userSelect:"none",WebkitUserSelect:"none"}}>
+      <style dangerouslySetInnerHTML={{__html:".tap{-webkit-tap-highlight-color:transparent;transition:filter .12s}.tap:active{filter:brightness(.88)}@keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}"}}/>
+      <div style={{textAlign:"center",marginBottom:36}}>
+        <div style={{fontSize:10,letterSpacing:"0.28em",color:T.dim,textTransform:"uppercase",marginBottom:8}}>Logic Puzzle</div>
+        <div style={{fontSize:28,color:T.txt,letterSpacing:"0.1em",marginBottom:16}}>NONOGRAM</div>
+        <div style={{width:100,height:2,background:T.bdr,borderRadius:2,margin:"0 auto 8px"}}>
+          <div style={{height:"100%",width:pct+"%",background:T.acc,borderRadius:2,transition:"width .5s"}}/>
+        </div>
+        <div style={{fontSize:11,color:T.sub,letterSpacing:"0.14em"}}>{totS}/{totP} SOLVED</div>
+      </div>
+      <div style={{width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+        <div style={{fontSize:9,color:T.dim,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:4}}>Puzzles</div>
+        {cats.map(function(cat,i) {
+          var prog=catProg(cat.id); var all=prog.d===prog.t&&prog.t>0;
+          return (
+            <div key={cat.id} className="tap"
+              style={{background:T.sur,border:"1px solid "+(all?T.accBg:T.bdr),borderRadius:8,padding:"18px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",animation:"fu .3s ease "+(i*.06)+"s both"}}
+              onTouchStart={tap.ts} onTouchEnd={tap.te(function(){onCat(cat.id);})} onClick={function(){onCat(cat.id);}}>
+              <div>
+                <div style={{fontSize:14,color:all?T.acc:T.txt,letterSpacing:"0.08em",marginBottom:4}}>
+                  {cat.label} <span style={{color:T.sub,fontSize:12}}>— {cat.desc}</span>
+                </div>
+                <div style={{fontSize:10,color:T.sub}}>{prog.d}/{prog.t} solved</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                {all && <div style={{fontSize:11,color:T.acc}}>✓</div>}
+                <div style={{fontSize:22,color:T.dim}}>›</div>
+              </div>
+            </div>
+          );
+        })}
+        <div className="tap"
+          style={{background:"none",border:"1px dashed "+T.bdr,borderRadius:8,padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}
+          onTouchStart={tap.ts} onTouchEnd={tap.te(onCreate)} onClick={onCreate}>
+          <div style={{fontSize:13,color:T.sub}}>+ Create a Puzzle</div>
+          <div style={{fontSize:22,color:T.dim}}>›</div>
+        </div>
+      </div>
+      <div style={{width:"100%",maxWidth:320,marginBottom:16}}><AdBanner T={T} label="Ad - Menu"/></div>
+      <div style={{width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{fontSize:9,color:T.dim,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:4}}>More</div>
+        <div className="tap" style={{background:"none",border:"1px solid "+T.bdr,borderRadius:8,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(onSettings)} onClick={onSettings}>
+          <div style={{fontSize:12,color:T.sub,letterSpacing:"0.1em",textTransform:"uppercase"}}>Settings</div>
+          <div style={{fontSize:22,color:T.dim}}>›</div>
+        </div>
+        <div className="tap" style={{background:"none",border:"1px solid "+T.bdr,borderRadius:8,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",opacity:.38}}>
+          <div style={{fontSize:12,color:T.sub,letterSpacing:"0.1em",textTransform:"uppercase"}}>How to Play</div>
+          <div style={{fontSize:22,color:T.dim}}>›</div>
+        </div>
+      </div>
+      <div style={{marginTop:"auto",paddingTop:40,fontSize:9,color:T.dim,letterSpacing:"0.18em"}}>v0.9.3-alpha</div>
+    </div>
+  );
+}
+
+// ── Category ──────────────────────────────────────────────────────────────────
+function Category(props) {
+  var T=props.T, cat=props.cat, solvedMap=props.solvedMap, onSelect=props.onSelect, onBack=props.onBack, onDel=props.onDel;
+  var tap = useTap();
+  var cdState = useState(null); var cdel=cdState[0]; var setCdel=cdState[1];
+  var done = cat.puzzles.filter(function(_,i){return solvedMap[cat.id+"_"+i];}).length;
+  return (
+    <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'Courier New',monospace",padding:"40px 24px",userSelect:"none",WebkitUserSelect:"none"}}>
+      <style dangerouslySetInnerHTML={{__html:".tap{-webkit-tap-highlight-color:transparent;transition:filter .12s}.tap:active{filter:brightness(.88)}"}}/> 
+      <div style={{width:"100%",maxWidth:320,display:"flex",alignItems:"center",marginBottom:32}}>
+        <button style={{background:"none",border:"none",color:T.sub,fontFamily:"'Courier New',monospace",fontSize:12,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",padding:"8px 0",WebkitTapHighlightColor:"transparent"}} onTouchStart={tap.ts} onTouchEnd={tap.te(onBack)} onClick={onBack}>Back</button>
+        <div style={{flex:1,textAlign:"center",fontSize:13,color:T.txt,letterSpacing:"0.14em"}}>{cat.label} PUZZLES</div>
+        <div style={{fontSize:11,color:T.sub}}>{done}/{cat.puzzles.length}</div>
+      </div>
+      <div style={{width:"100%",maxWidth:320,display:"flex",flexDirection:"column",gap:10}}>
+        {cat.puzzles.map(function(p,i) {
+          var id=cat.id+"_"+i; var sol=!!solvedMap[id];
+          return (
+            <div key={i}>
+              <div className="tap"
+                style={{background:T.sur,border:"1px solid "+(sol?T.accBg:T.bdr),borderRadius:8,padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}
+                onTouchStart={tap.ts} onTouchEnd={tap.te(function(){onSelect(i);})} onClick={function(){onSelect(i);}}>
+                <div>
+                  <div style={{fontSize:13,color:sol?T.acc:T.txt,letterSpacing:"0.08em",marginBottom:3}}>{sol?p.name:"???"}</div>
+                  <div style={{fontSize:10,color:T.sub}}>{p.size}x{p.size}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {sol && <div style={{fontSize:10,color:T.acc,letterSpacing:"0.12em"}}>SOLVED</div>}
+                  {onDel && <div style={{fontSize:16,color:T.err,padding:"0 6px",cursor:"pointer"}} onTouchStart={function(e){e.stopPropagation();}} onTouchEnd={function(e){e.stopPropagation();setCdel(i);}}>x</div>}
+                  <div style={{fontSize:22,color:T.dim}}>›</div>
+                </div>
+              </div>
+              {cdel===i && (
+                <div style={{background:T.sur,border:"1px solid "+T.err,borderRadius:8,padding:"14px 16px",marginTop:4}}>
+                  <div style={{fontSize:11,color:T.err,marginBottom:12}}>Delete "{p.name}"?</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <div className="tap" style={{flex:1,background:T.err,borderRadius:6,padding:"9px",textAlign:"center",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(function(){onDel(i);setCdel(null);})}><span style={{fontSize:11,color:"#fff"}}>Delete</span></div>
+                    <div className="tap" style={{flex:1,border:"1px solid "+T.bdr,borderRadius:6,padding:"9px",textAlign:"center",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(function(){setCdel(null);})}><span style={{fontSize:11,color:T.sub}}>Cancel</span></div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Puzzle Grid ───────────────────────────────────────────────────────────────
+function PuzzleGrid(props) {
+  var puzzle=props.puzzle, grid=props.grid, isSolved=props.isSolved, T=props.T, gridRef=props.gridRef, dataAttr=props.dataAttr||"data-cell";
+  var d=cellDims(puzzle.size); var C=d.C; var cW=d.cW; var cF=d.cF; var xF=d.xF;
+  var rClues=getClues(puzzle.solution);
+  var cClues=getClues(getCols(puzzle.solution));
+  var mLen=Math.max.apply(null,rClues.map(function(c){return c.length;}));
+  return (
+    <div ref={gridRef} style={{touchAction:"none",outline:isSolved?"2px solid "+T.ring:"2px solid transparent",outlineOffset:3,borderRadius:3}}>
+      <table style={{borderCollapse:"collapse",tableLayout:"fixed"}}>
+        <thead>
+          <tr>
+            <td colSpan={mLen} style={{width:mLen*cW,height:mLen*17}}/>
+            {cClues.map(function(clue,c) {
+              var done=clueDone(clue,grid.map(function(r){return r[c];}));
+              return (
+                <td key={c} style={{width:C,height:mLen*17,textAlign:"center",verticalAlign:"bottom",paddingBottom:4}}>
+                  {clue.map(function(n,i){return <div key={i} style={{fontSize:cF,fontWeight:"bold",lineHeight:"17px",color:done?T.cD:T.cN,transition:"color .3s"}}>{n}</div>;})}
+                </td>
+              );
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {puzzle.solution.map(function(_,r) {
+            var done=clueDone(rClues[r],grid[r]);
+            return (
+              <tr key={r}>
+                {Array.from({length:mLen},function(_,i){
+                  var idx=i-(mLen-rClues[r].length); var n=rClues[r][idx];
+                  return <td key={i} style={{textAlign:"right",paddingRight:4,fontSize:cF,fontWeight:"bold",color:done?T.cD:T.cN,transition:"color .3s",width:cW,height:C}}>{n!==undefined?n:""}</td>;
+                })}
+                {puzzle.solution[r].map(function(_,c) {
+                  var val=grid[r][c];
+                  var t5c=(c+1)%5===0&&c!==puzzle.size-1;
+                  var t5r=(r+1)%5===0&&r!==puzzle.size-1;
+                  var attrs = {}; attrs[dataAttr]=r+","+c;
+                  return (
+                    <td key={c} {...attrs} style={{width:C,height:C,background:val===1?T.fill:T.empty,border:"1px solid "+T.bdr,borderRight:t5c?"2px solid "+T.bdrS:"1px solid "+T.bdr,borderBottom:t5r?"2px solid "+T.bdrS:"1px solid "+T.bdr,boxSizing:"border-box",position:"relative",transition:"background .07s"}}>
+                      {!isSolved && (val===2||val===3) && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:xF,color:T.xM}}>x</div>}
+                      {val===4 && !isSolved && <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{width:C*.35,height:C*.35,borderRadius:"50%",background:T.mk,opacity:.75}}/></div>}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Puzzle Screen ─────────────────────────────────────────────────────────────
+function PuzzleScreen(props) {
+  var puzzle=props.puzzle, grid=props.grid, isSolved=props.isSolved, initTimer=props.initTimer, running=props.running;
+  var T=props.T, sett=props.sett, canU=props.canU, canR=props.canR;
+  var onLive=props.onLive, onCommit=props.onCommit, onUndo=props.onUndo, onRedo=props.onRedo, onReset=props.onReset;
+  var onTimer=props.onTimer, onSettings=props.onSettings, onBack=props.onBack, onNext=props.onNext;
+
+  var ms=useState("fill"); var mode=ms[0]; var setMode=ms[1];
+  var es=useState(initTimer); var elapsed=es[0]; var setElapsed=es[1];
+  var eRef=useRef(initTimer); var tiRef=useRef(onTimer); tiRef.current=onTimer;
+  var tap=useTap();
+  var gRef=useRef(null); var snap=useRef(grid); snap.current=grid;
+  var drag=useRef({on:false,action:null,sR:0,sC:0,axis:null,path:[],set:{},orig:null});
+
+  useEffect(function(){
+    if (!running||!sett.showTimer) return;
+    var id=setInterval(function(){eRef.current++;setElapsed(eRef.current);},1000);
+    return function(){clearInterval(id);};
+  },[running,sett.showTimer]);
+  useEffect(function(){return function(){tiRef.current(eRef.current);};},[]);
+  useEffect(function(){if(isSolved)tiRef.current(eRef.current);},[isSolved]);
+
+  function cellFromPoint(clientX,clientY) {
+    var el=gRef.current; if(!el)return null;
+    var rect=el.getBoundingClientRect();
+    var lx=clientX-rect.left; var ly=clientY-rect.top;
+    var d=cellDims(puzzle.size);
+    var rClues=getClues(puzzle.solution);
+    var mLen=Math.max.apply(null,rClues.map(function(cl){return cl.length;}));
+    var clueW=mLen*d.cW; var clueH=mLen*17;
+    var cx=lx-clueW; var cy=ly-clueH;
+    if(cx<0||cy<0)return null;
+    var col=Math.floor(cx/d.C); var row=Math.floor(cy/d.C);
+    if(col<0||col>=puzzle.size||row<0||row>=puzzle.size)return null;
+    return [row,col];
+  }
+
+  var onPD=useCallback(function(e){
+    if(isSolved)return;
+    e.preventDefault();
+    gRef.current.setPointerCapture(e.pointerId);
+    var co=cellFromPoint(e.clientX,e.clientY); if(!co)return;
+    var r=co[0]; var c=co[1];
+    var a=getAction(snap.current[r][c],mode); if(!a)return;
+    var orig=snap.current.map(function(row){return row.slice();}); var path=[{r:r,c:c}]; var set={}; set[r+","+c]=1;
+    drag.current={on:true,action:a,sR:r,sC:c,axis:null,path:path,set:set,orig:orig};
+    onLive(rebuildPath(orig,path,a,puzzle.solution,sett.autoFillCrosses));
+  },[isSolved,mode,puzzle,sett,onLive]);
+
+  function canApply(a,ov){if(a==="fill"&&ov===1)return false;if(a==="erase"&&ov!==1)return false;if(a==="cross"&&ov===1)return false;if(a==="uncross"&&ov!==2)return false;if(a==="mark"&&ov===1)return false;if(a==="unmark"&&ov!==4)return false;return true;}
+  var onPM=useCallback(function(e){
+    e.preventDefault(); var d=drag.current; if(!d.on)return;
+    var co=cellFromPoint(e.clientX,e.clientY); if(!co)return;
+    var tR=co[0]; var tC=co[1];
+    if(!d.axis){if(tR===d.sR&&tC===d.sC)return;d.axis=Math.abs(tR-d.sR)>=Math.abs(tC-d.sC)?"col":"row";}
+    var cR=d.axis==="row"?d.sR:tR; var cC=d.axis==="col"?d.sC:tC;
+    if(d.path.length>=2){var pv=d.path[d.path.length-2];if(cR===pv.r&&cC===pv.c){var rm=d.path.pop();delete d.set[rm.r+","+rm.c];onLive(rebuildPath(d.orig,d.path,d.action,puzzle.solution,sett.autoFillCrosses));return;}}
+    var last=d.path[d.path.length-1]; var changed=false;
+    var stepR=cR>last.r?1:cR<last.r?-1:0; var stepC=cC>last.c?1:cC<last.c?-1:0;
+    var ir=last.r+stepR; var ic=last.c+stepC;
+    while(ir!==cR||ic!==cC){var ik=ir+","+ic;if(!d.set[ik]&&canApply(d.action,d.orig[ir][ic])){d.path.push({r:ir,c:ic});d.set[ik]=1;changed=true;}ir+=stepR;ic+=stepC;}
+    var key=cR+","+cC;
+    if(!d.set[key]&&canApply(d.action,d.orig[cR][cC])){d.path.push({r:cR,c:cC});d.set[key]=1;changed=true;}
+    if(changed)onLive(rebuildPath(d.orig,d.path,d.action,puzzle.solution,sett.autoFillCrosses));
+  },[puzzle,sett,onLive]);
+
+  var onPU=useCallback(function(){
+    var d=drag.current; if(!d.on)return; d.on=false;
+    if(d.path.length>0) onCommit(rebuildPath(d.orig,d.path,d.action,puzzle.solution,sett.autoFillCrosses));
+  },[puzzle,sett,onCommit]);
+
+  useEffect(function(){
+    var el=gRef.current; if(!el)return;
+    el.addEventListener("pointerdown",onPD,{passive:false});
+    el.addEventListener("pointermove",onPM,{passive:false});
+    el.addEventListener("pointerup",onPU);
+    el.addEventListener("pointercancel",onPU);
+    return function(){el.removeEventListener("pointerdown",onPD);el.removeEventListener("pointermove",onPM);el.removeEventListener("pointerup",onPU);el.removeEventListener("pointercancel",onPU);};
+  },[onPD,onPM,onPU]);
+
+  function ib(en,hi) { return {background:"none",border:"1px solid "+(en?(hi?T.acc:T.bdr):T.bdr),color:en?(hi?T.acc:T.txt):T.dim,borderRadius:6,padding:"8px 14px",fontFamily:"'Courier New',monospace",fontSize:13,cursor:en?"pointer":"default",WebkitTapHighlightColor:"transparent",opacity:en?1:.3}; }
+  var modes=[["fill","Fill"],["marker","Mark"],["cross","X"]];
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"'Courier New',monospace",padding:"16px",overflowY:"auto",touchAction:"none",userSelect:"none",WebkitUserSelect:"none"}}>
+      <style dangerouslySetInnerHTML={{__html:"@keyframes fi{from{opacity:0}to{opacity:1}}@keyframes su{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}.ib{-webkit-tap-highlight-color:transparent;transition:filter .1s}.ib:active{filter:brightness(.8)}.mp{font-family:'Courier New',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border:none;padding:10px 16px;transition:background .15s,color .15s;-webkit-tap-highlight-color:transparent}"}}/>
+      <div style={{width:"100%",maxWidth:440,display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+        <button className="ib" style={{background:"none",border:"none",color:T.sub,fontFamily:"'Courier New',monospace",fontSize:12,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",padding:"8px 0",flexShrink:0}} onTouchStart={tap.ts} onTouchEnd={tap.te(onBack)} onClick={onBack}>Back</button>
+        <div style={{flex:1,textAlign:"center",fontSize:13,color:T.txt,letterSpacing:"0.14em"}}>{isSolved?puzzle.name.toUpperCase():"???"}</div>
+        <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+          {isSolved ? <div style={{fontSize:11,color:T.acc,letterSpacing:"0.1em",animation:"fi .4s ease"}}>SOLVED</div> : sett.showTimer && <div style={{fontSize:12,color:running?T.sub:T.dim,fontVariantNumeric:"tabular-nums",letterSpacing:"0.05em",minWidth:40,textAlign:"right"}}>{fmtTime(elapsed)}</div>}
+          <button className="ib" style={{background:"none",border:"none",color:T.sub,fontFamily:"'Courier New',monospace",fontSize:16,cursor:"pointer",padding:"4px 6px"}} onTouchStart={tap.ts} onTouchEnd={tap.te(onSettings)} onClick={onSettings}>S</button>
+        </div>
+      </div>
+      {isSolved && sett.showTimer && <div style={{fontSize:11,color:T.sub,letterSpacing:"0.12em",marginBottom:10,animation:"fi .5s ease"}}>Completed in {fmtTime(elapsed)}</div>}
+      {!isSolved && (
+        <div style={{display:"flex",border:"1px solid "+T.bdr,borderRadius:6,overflow:"hidden",marginBottom:14}}>
+          {modes.map(function(m,i){
+            return <button key={m[0]} className="mp" onTouchStart={tap.ts} onTouchEnd={tap.te(function(){setMode(m[0]);})} onClick={function(){setMode(m[0]);}} style={{background:mode===m[0]?T.bBg:"transparent",color:mode===m[0]?T.bFg:m[0]==="marker"?T.acc:T.sub,borderRight:i<2?"1px solid "+T.bdr:"none"}}>{m[1]}</button>;
+          })}
+        </div>
+      )}
+      <PuzzleGrid puzzle={puzzle} grid={grid} isSolved={isSolved} T={T} gridRef={gRef} dataAttr="data-cell"/>
+      {isSolved && !sett.adsRemoved && <div style={{marginTop:16,width:"100%",maxWidth:440,display:"flex",justifyContent:"center",animation:"fi .6s ease"}}><AdBanner T={T} label="Ad - Post Solve"/></div>}
+      <div style={{marginTop:16,display:"flex",flexDirection:"column",alignItems:"center",gap:12,width:"100%",maxWidth:440,animation:"su .25s ease"}}>
+        {!isSolved && (
+          <div style={{display:"flex",gap:8,justifyContent:"center"}}>
+            <button className="ib" style={ib(canU,false)} onTouchStart={canU?tap.ts:undefined} onTouchEnd={canU?tap.te(onUndo):undefined} onClick={canU?onUndo:undefined}>Undo</button>
+            <button className="ib" style={ib(true,false)} onTouchStart={tap.ts} onTouchEnd={tap.te(onReset)} onClick={onReset}>Reset</button>
+            <button className="ib" style={ib(canR,false)} onTouchStart={canR?tap.ts:undefined} onTouchEnd={canR?tap.te(onRedo):undefined} onClick={canR?onRedo:undefined}>Redo</button>
+          </div>
+        )}
+        {isSolved && (
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center",animation:"su .3s ease"}}>
+            {onNext && <button className="ib" style={ib(true,true)} onTouchStart={tap.ts} onTouchEnd={tap.te(onNext)} onClick={onNext}>Next Puzzle</button>}
+            <button className="ib" style={ib(true,false)} onTouchStart={tap.ts} onTouchEnd={tap.te(onReset)} onClick={onReset}>Reset and Replay</button>
+          </div>
+        )}
+        <div style={{fontSize:10,color:T.dim,letterSpacing:"0.1em",textAlign:"center"}}>{isSolved?"PUZZLE COMPLETE":"DRAG TO FILL - BACKTRACK TO ERASE - MARK PLANS MOVES"}</div>
+      </div>
+      <div style={{marginTop:20,fontSize:9,color:T.dim,letterSpacing:"0.18em"}}>v0.9.3-alpha</div>
+    </div>
+  );
+}
+
+// ── Creator ───────────────────────────────────────────────────────────────────
+function Creator(props) {
+  var T=props.T, onSave=props.onSave, onBack=props.onBack;
+  var ss=useState(5); var size=ss[0]; var setSize=ss[1];
+  var ns=useState(""); var name=ns[0]; var setName=ns[1];
+  var gs=useState(function(){return emptyGrid(5);}); var grid=gs[0]; var setGrid=gs[1];
+  var exs=useState(false); var showExp=exs[0]; var setShowExp=exs[1];
+  var cs=useState(false); var copied=cs[0]; var setCopied=cs[1];
+  var svs=useState("idle"); var saveState=svs[0]; var setSaveState=svs[1];
+  var hs=useState(function(){return [emptyGrid(5)];}); var hist=hs[0]; var setHist=hs[1];
+  var ps=useState(0); var ptr=ps[0]; var setPtr=ps[1];
+  var tap=useTap();
+  var gRef=useRef(null); var snap=useRef(grid); snap.current=grid;
+  var drag=useRef({on:false,action:null,sR:0,sC:0,axis:null,path:[],set:{},orig:null});
+
+  var filled=grid.flat().filter(function(v){return v===1;}).length;
+  var canSave=filled>0&&name.trim().length>0;
+  var expStr='name: "'+(name||"Untitled")+'", size: '+size+", solution: "+JSON.stringify(grid);
+  var canU=ptr>0; var canR=ptr<hist.length-1;
+  var d=cellDims(size); var C=d.C; var cW=d.cW; var cF=d.cF;
+  var rC=getClues(grid); var cC=getClues(getCols(grid));
+  var mLen=Math.max(Math.ceil(size/2),1);
+
+  function commitG(g) { setHist(function(h){return h.slice(0,ptr+1).concat([g]);}); setPtr(function(p){return p+1;}); setGrid(g); setSaveState("idle"); }
+  function chgSize(s) { var f=emptyGrid(s); setSize(s); setGrid(f); setHist([f]); setPtr(0); setSaveState("idle"); setShowExp(false); }
+  function doU() { if(!canU)return; var p=ptr-1; setPtr(p); setGrid(hist[p]); setSaveState("idle"); }
+  function doR() { if(!canR)return; var p=ptr+1; setPtr(p); setGrid(hist[p]); setSaveState("idle"); }
+  function doClear() { commitG(emptyGrid(size)); }
+
+  function cellFromPoint(clientX,clientY) {
+    var el=gRef.current; if(!el)return null;
+    var rect=el.getBoundingClientRect();
+    var lx=clientX-rect.left; var ly=clientY-rect.top;
+    var d=cellDims(size);
+    var fixedML=Math.max(Math.ceil(size/2),1);
+    var clueW=fixedML*d.cW; var clueH=fixedML*17;
+    var cx=lx-clueW; var cy=ly-clueH;
+    if(cx<0||cy<0)return null;
+    var col=Math.floor(cx/d.C); var row=Math.floor(cy/d.C);
+    if(col<0||col>=size||row<0||row>=size)return null;
+    return [row,col];
+  }
+
+  var onPD=useCallback(function(e){
+    e.preventDefault();
+    gRef.current.setPointerCapture(e.pointerId);
+    var co=cellFromPoint(e.clientX,e.clientY); if(!co)return;
+    var r=co[0]; var c=co[1];
+    var orig=snap.current.map(function(row){return row.slice();}); var action=orig[r][c]===1?"erase":"fill";
+    var path=[{r:r,c:c}]; var set={}; set[r+","+c]=1;
+    drag.current={on:true,action:action,sR:r,sC:c,axis:null,path:path,set:set,orig:orig};
+    var next=orig.map(function(row){return row.slice();}); next[r][c]=action==="fill"?1:0; setGrid(next);
+  },[]);
+
+  function canApplyC(a,ov){if(a==="fill"&&ov===1)return false;if(a==="erase"&&ov!==1)return false;return true;}
+  function applyPath(orig,path,action){var g=orig.map(function(row){return row.slice();});for(var i=0;i<path.length;i++){g[path[i].r][path[i].c]=action==="fill"?1:0;}return g;}
+  var onPM=useCallback(function(e){
+    e.preventDefault(); var d=drag.current; if(!d.on)return;
+    var co=cellFromPoint(e.clientX,e.clientY); if(!co)return; var tR=co[0]; var tC=co[1];
+    if(!d.axis){if(tR===d.sR&&tC===d.sC)return;d.axis=Math.abs(tR-d.sR)>=Math.abs(tC-d.sC)?"col":"row";}
+    var cR=d.axis==="row"?d.sR:tR; var cC2=d.axis==="col"?d.sC:tC;
+    if(d.path.length>=2){var pv=d.path[d.path.length-2];if(cR===pv.r&&cC2===pv.c){var rm=d.path.pop();delete d.set[rm.r+","+rm.c];setGrid(applyPath(d.orig,d.path,d.action));return;}}
+    var last=d.path[d.path.length-1]; var changed=false;
+    var stepR=cR>last.r?1:cR<last.r?-1:0; var stepC=cC2>last.c?1:cC2<last.c?-1:0;
+    var ir=last.r+stepR; var ic=last.c+stepC;
+    while(ir!==cR||ic!==cC2){var ik=ir+","+ic;if(!d.set[ik]&&canApplyC(d.action,d.orig[ir][ic])){d.path.push({r:ir,c:ic});d.set[ik]=1;changed=true;}ir+=stepR;ic+=stepC;}
+    var key=cR+","+cC2;
+    if(!d.set[key]&&canApplyC(d.action,d.orig[cR][cC2])){d.path.push({r:cR,c:cC2});d.set[key]=1;changed=true;}
+    if(changed)setGrid(applyPath(d.orig,d.path,d.action));
+  },[]);
+
+  var onPU=useCallback(function(){
+    var d=drag.current; if(!d.on)return; d.on=false;
+    var f=d.orig.map(function(row){return row.slice();});
+    for(var i=0;i<d.path.length;i++){f[d.path[i].r][d.path[i].c]=d.action==="fill"?1:0;}
+    commitG(f);
+  },[ptr,hist]); // eslint-disable-line
+
+  useEffect(function(){
+    var el=gRef.current; if(!el)return;
+    el.addEventListener("pointerdown",onPD,{passive:false});
+    el.addEventListener("pointermove",onPM,{passive:false});
+    el.addEventListener("pointerup",onPU);
+    el.addEventListener("pointercancel",onPU);
+    return function(){el.removeEventListener("pointerdown",onPD);el.removeEventListener("pointermove",onPM);el.removeEventListener("pointerup",onPU);el.removeEventListener("pointercancel",onPU);};
+  },[onPD,onPM,onPU]);
+
+  function doSave() { if(!canSave)return; onSave({name:name.trim(),size:size,solution:grid.map(function(r){return r.slice();})}); setSaveState("saved"); }
+  function doCopy() {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(expStr).then(function(){setCopied(true);setTimeout(function(){setCopied(false);},2000);}).catch(function(){});
+    }
+  }
+
+  var sBg=saveState==="saved"?T.accBg:canSave?T.acc:T.sur;
+  var sBd=canSave||saveState==="saved"?T.acc:T.bdr;
+  var sFg=saveState==="saved"?T.acc:canSave?"#fff":T.dim;
+  var sLb=saveState==="saved"?"Saved to My Puzzles":canSave?"Save to My Puzzles":"Name puzzle and draw to save";
+
+  return (
+    <div style={{position:"fixed",inset:0,background:T.bg,display:"flex",flexDirection:"column",fontFamily:"'Courier New',monospace",userSelect:"none",WebkitUserSelect:"none",overflowY:"auto"}}>
+      <style dangerouslySetInnerHTML={{__html:".tap{-webkit-tap-highlight-color:transparent;transition:filter .12s}.tap:active{filter:brightness(.88)}@keyframes fi{from{opacity:0}to{opacity:1}}.ci{background:none;border:none;border-bottom:1px solid;outline:none;font-family:'Courier New',monospace;font-size:16px;letter-spacing:.06em;width:100%;padding:6px 0;text-align:center}"}}/>
+      <div style={{padding:"20px 16px 0",flexShrink:0,maxWidth:440,margin:"0 auto",width:"100%"}}>
+        <div style={{display:"flex",alignItems:"center",marginBottom:16}}>
+          <button style={{background:"none",border:"none",color:T.sub,fontFamily:"'Courier New',monospace",fontSize:12,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",padding:"8px 0",WebkitTapHighlightColor:"transparent"}} onTouchStart={tap.ts} onTouchEnd={tap.te(onBack)} onClick={onBack}>Back</button>
+          <div style={{flex:1,textAlign:"center",fontSize:13,color:T.txt,letterSpacing:"0.14em"}}>CREATE PUZZLE</div>
+          <div style={{width:48}}/>
+        </div>
+        <div style={{marginBottom:16,height:36}}>
+          <input className="ci" style={{color:T.txt,borderBottomColor:T.bdr}} placeholder="Puzzle name" value={name} onChange={function(e){setName(e.target.value);setSaveState("idle");}} onFocus={function(e){e.target.style.borderBottomColor=T.acc;}} onBlur={function(e){e.target.style.borderBottomColor=T.bdr;}}/>
+        </div>
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16}}>
+          {[5,7,10,15].map(function(s){
+            return <div key={s} className="tap" style={{background:size===s?T.bBg:T.sur,border:"1px solid "+(size===s?T.acc:T.bdr),color:size===s?T.bFg:T.sub,borderRadius:6,padding:"8px 14px",fontSize:11,cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(function(){chgSize(s);})} onClick={function(){chgSize(s);}}>{s}x{s}</div>;
+          })}
+        </div>
+      </div>
+      <div style={{flex:"0 0 auto",display:"flex",flexDirection:"column",alignItems:"center",padding:"0 16px"}}>
+        <div ref={gRef} style={{touchAction:"none"}}>
+          <table style={{borderCollapse:"collapse",tableLayout:"fixed"}}>
+            <thead>
+              <tr>
+                <td colSpan={mLen} style={{width:mLen*cW,height:mLen*17}}/>
+                {cC.map(function(clue,c){return <td key={c} style={{width:C,height:mLen*17,textAlign:"center",verticalAlign:"bottom",paddingBottom:4}}>{clue.map(function(n,i){return <div key={i} style={{fontSize:cF,fontWeight:"bold",lineHeight:"17px",color:T.cN}}>{n}</div>;})}</td>;})}
+              </tr>
+            </thead>
+            <tbody>
+              {grid.map(function(row,r){
+                return (
+                  <tr key={r}>
+                    {Array.from({length:mLen},function(_,i){var idx=i-(mLen-rC[r].length);var n=rC[r][idx];return <td key={i} style={{textAlign:"right",paddingRight:4,fontSize:cF,fontWeight:"bold",color:T.cN,width:cW,height:C}}>{n!==undefined?n:""}</td>;})}
+                    {row.map(function(val,c){var t5c=(c+1)%5===0&&c!==size-1;var t5r=(r+1)%5===0&&r!==size-1;return <td key={c} data-cc={r+","+c} style={{width:C,height:C,background:val===1?T.fill:T.empty,border:"1px solid "+T.bdr,borderRight:t5c?"2px solid "+T.bdrS:"1px solid "+T.bdr,borderBottom:t5r?"2px solid "+T.bdrS:"1px solid "+T.bdr,boxSizing:"border-box",transition:"background .07s"}}/>;})}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div style={{fontSize:10,color:T.dim,letterSpacing:"0.1em",marginTop:8,marginBottom:4,textAlign:"center"}}>{filled} CELLS - DRAG TO DRAW - BACKTRACK TO ERASE</div>
+        <div style={{display:"flex",gap:8,justifyContent:"center",marginBottom:16}}>
+          <button className="tap" style={{background:"none",border:"1px solid "+T.bdr,color:canU?T.txt:T.dim,borderRadius:6,padding:"7px 12px",fontFamily:"'Courier New',monospace",fontSize:12,cursor:canU?"pointer":"default",WebkitTapHighlightColor:"transparent",opacity:canU?1:.3}} onTouchStart={canU?tap.ts:undefined} onTouchEnd={canU?tap.te(doU):undefined} onClick={canU?doU:undefined}>Undo</button>
+          <button className="tap" style={{background:"none",border:"1px solid "+T.bdr,color:T.txt,borderRadius:6,padding:"7px 12px",fontFamily:"'Courier New',monospace",fontSize:12,cursor:"pointer",WebkitTapHighlightColor:"transparent"}} onTouchStart={tap.ts} onTouchEnd={tap.te(doClear)} onClick={doClear}>Clear</button>
+          <button className="tap" style={{background:"none",border:"1px solid "+T.bdr,color:canR?T.txt:T.dim,borderRadius:6,padding:"7px 12px",fontFamily:"'Courier New',monospace",fontSize:12,cursor:canR?"pointer":"default",WebkitTapHighlightColor:"transparent",opacity:canR?1:.3}} onTouchStart={canR?tap.ts:undefined} onTouchEnd={canR?tap.te(doR):undefined} onClick={canR?doR:undefined}>Redo</button>
+        </div>
+      </div>
+      <div style={{padding:"0 16px 40px",maxWidth:360,margin:"0 auto",width:"100%",display:"flex",flexDirection:"column",gap:10}}>
+        <div className="tap" style={{background:sBg,border:"1px solid "+sBd,borderRadius:8,padding:"14px",textAlign:"center",cursor:canSave&&saveState!=="saved"?"pointer":"default"}} onTouchEnd={function(e){if(canSave&&saveState!=="saved"){e.preventDefault();doSave();}}} onClick={canSave&&saveState!=="saved"?doSave:undefined}>
+          <div style={{fontSize:13,letterSpacing:"0.1em",color:sFg}}>{sLb}</div>
+        </div>
+        <div className="tap" style={{background:T.sur,border:"1px solid "+T.bdr,borderRadius:8,padding:"14px",textAlign:"center",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(function(){setShowExp(function(v){return !v;});})}>
+          <div style={{fontSize:12,color:T.sub,letterSpacing:"0.1em"}}>{showExp?"Hide Export":"Export for Library"}</div>
+        </div>
+        {showExp && (
+          <div style={{background:T.sur,border:"1px solid "+T.bdr,borderRadius:8,padding:"14px",animation:"fi .2s ease"}}>
+            <div style={{fontSize:9,color:T.dim,letterSpacing:"0.16em",textTransform:"uppercase",marginBottom:8}}>Paste into chat to add to library:</div>
+            <div style={{fontSize:10,color:T.sub,fontFamily:"monospace",wordBreak:"break-all",lineHeight:1.7,marginBottom:12,background:T.bg,borderRadius:4,padding:"8px",userSelect:"text",WebkitUserSelect:"text"}}>{expStr}</div>
+            <div className="tap" style={{background:copied?T.accBg:T.bBg,border:"1px solid "+(copied?T.acc:T.bdr),borderRadius:6,padding:"10px",textAlign:"center",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(doCopy)} onClick={doCopy}>
+              <div style={{fontSize:12,color:copied?T.acc:T.bFg,letterSpacing:"0.1em"}}>{copied?"Copied!":"Copy to Clipboard"}</div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+function Settings(props) {
+  var T=props.T, sett=props.sett, onSet=props.onSet, onReset=props.onReset, onBack=props.onBack;
+  var tap=useTap();
+  var cs=useState(false); var cfm=cs[0]; var setCfm=cs[1];
+  var is=useState(sett.adsRemoved?"done":"idle"); var iap=is[0]; var setIap=is[1];
+
+  function doIap() { setIap("loading"); setTimeout(function(){setIap("done");onSet("adsRemoved",true);},1200); }
+
+  function Toggle(tProps) {
+    var val=tProps.val, fn=tProps.fn;
+    return (
+      <div onTouchStart={tap.ts} onTouchEnd={tap.te(fn)} onClick={fn} style={{width:46,height:26,borderRadius:13,background:val?T.acc:T.bdr,position:"relative",cursor:"pointer",transition:"background .2s",flexShrink:0,WebkitTapHighlightColor:"transparent"}}>
+        <div style={{position:"absolute",top:3,left:val?22:3,width:20,height:20,borderRadius:"50%",background:"#fff",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.25)"}}/>
+      </div>
+    );
+  }
+
+  var themeOpts=[{v:"system",label:"Follow System",desc:"Matches your device"},{v:"light",label:"Always Light",desc:"Light bg, dark text"},{v:"dark",label:"Always Dark",desc:"Dark bg, light text"}];
+  var gameOpts=[{k:"showTimer",lb:"Show Timer",desc:"Count up while solving"},{k:"autoFillCrosses",lb:"Auto-fill Crosses",desc:"Mark complete rows"}];
+
+  return (
+    <div style={{minHeight:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'Courier New',monospace",padding:"40px 24px",userSelect:"none",WebkitUserSelect:"none"}}>
+      <style dangerouslySetInnerHTML={{__html:".tap{-webkit-tap-highlight-color:transparent;transition:filter .12s}.tap:active{filter:brightness(.92)}"}}/>
+      <div style={{width:"100%",maxWidth:320,display:"flex",alignItems:"center",marginBottom:32}}>
+        <button style={{background:"none",border:"none",color:T.sub,fontFamily:"'Courier New',monospace",fontSize:12,letterSpacing:"0.12em",textTransform:"uppercase",cursor:"pointer",padding:"8px 0",WebkitTapHighlightColor:"transparent"}} onTouchStart={tap.ts} onTouchEnd={tap.te(onBack)} onClick={onBack}>Back</button>
+        <div style={{flex:1,textAlign:"center",fontSize:13,color:T.txt,letterSpacing:"0.14em"}}>SETTINGS</div>
+        <div style={{width:48}}/>
+      </div>
+
+      <div style={{width:"100%",maxWidth:320,marginBottom:28}}>
+        <div style={{fontSize:9,color:T.dim,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Appearance</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {themeOpts.map(function(o){
+            var on=sett.theme===o.v;
+            return (
+              <div key={o.v} className="tap" style={{background:T.sur,border:"1px solid "+(on?T.acc:T.bdr),borderRadius:8,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(function(){onSet("theme",o.v);})} onClick={function(){onSet("theme",o.v);}}>
+                <div>
+                  <div style={{fontSize:13,color:on?T.acc:T.txt,letterSpacing:"0.06em",marginBottom:3}}>{o.label}</div>
+                  <div style={{fontSize:10,color:T.sub}}>{o.desc}</div>
+                </div>
+                <div style={{width:18,height:18,borderRadius:"50%",border:"2px solid "+(on?T.acc:T.bdr),background:on?T.acc:"transparent",transition:"all .15s"}}/>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{width:"100%",maxWidth:320,marginBottom:28}}>
+        <div style={{fontSize:9,color:T.dim,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Gameplay</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {gameOpts.map(function(o){
+            return (
+              <div key={o.k} style={{background:T.sur,border:"1px solid "+T.bdr,borderRadius:8,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div><div style={{fontSize:13,color:T.txt,letterSpacing:"0.06em",marginBottom:3}}>{o.lb}</div><div style={{fontSize:10,color:T.sub}}>{o.desc}</div></div>
+                <Toggle val={sett[o.k]} fn={function(){onSet(o.k,!sett[o.k]);}}/>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{width:"100%",maxWidth:320,marginBottom:28}}>
+        <div style={{fontSize:9,color:T.dim,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Subscription</div>
+        {sett.adsRemoved
+          ? <div style={{background:T.sur,border:"1px solid "+T.accBg,borderRadius:8,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div><div style={{fontSize:13,color:T.acc,marginBottom:3}}>Ads Removed</div><div style={{fontSize:10,color:T.sub}}>Thank you!</div></div><div style={{fontSize:16,color:T.acc}}>ok</div></div>
+          : <div className="tap" style={{background:T.sur,border:"1px solid "+T.bdr,borderRadius:8,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(doIap)} onClick={doIap}><div><div style={{fontSize:13,color:T.txt,marginBottom:3}}>Remove Ads</div><div style={{fontSize:10,color:T.sub}}>{iap==="loading"?"Processing...":"One-time purchase - $1.99"}</div></div><div style={{fontSize:13,color:T.acc,fontWeight:"bold"}}>{iap==="loading"?"...":"$1.99"}</div></div>
+        }
+      </div>
+
+      <div style={{width:"100%",maxWidth:320,marginBottom:28}}>
+        <div style={{fontSize:9,color:T.dim,letterSpacing:"0.2em",textTransform:"uppercase",marginBottom:12}}>Data</div>
+        {!cfm
+          ? <div className="tap" style={{background:T.sur,border:"1px solid "+T.bdr,borderRadius:8,padding:"14px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(function(){setCfm(true);})} onClick={function(){setCfm(true);}}><div><div style={{fontSize:13,color:T.err,marginBottom:3}}>Reset All Progress</div><div style={{fontSize:10,color:T.sub}}>Clear all puzzles and settings</div></div><div style={{fontSize:18,color:T.dim}}>›</div></div>
+          : <div style={{background:T.sur,border:"1px solid "+T.err,borderRadius:8,padding:"16px 18px"}}>
+              <div style={{fontSize:12,color:T.err,marginBottom:14}}>This will erase all progress and cannot be undone.</div>
+              <div style={{display:"flex",gap:10}}>
+                <div className="tap" style={{flex:1,background:T.err,borderRadius:6,padding:"10px",textAlign:"center",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(onReset)} onClick={onReset}><span style={{fontSize:12,color:"#fff",letterSpacing:"0.1em"}}>Confirm Reset</span></div>
+                <div className="tap" style={{flex:1,border:"1px solid "+T.bdr,borderRadius:6,padding:"10px",textAlign:"center",cursor:"pointer"}} onTouchStart={tap.ts} onTouchEnd={tap.te(function(){setCfm(false);})} onClick={function(){setCfm(false);}}><span style={{fontSize:12,color:T.sub}}>Cancel</span></div>
+              </div>
+            </div>
+        }
+      </div>
+      {!sett.adsRemoved && <AdBanner T={T} label="Ad - Settings"/>}
+      <div style={{marginTop:"auto",paddingTop:40,fontSize:9,color:T.dim,letterSpacing:"0.18em"}}>v0.9.3-alpha</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function() {
+    navigator.serviceWorker.register("/sw.js").catch(function() {});
+  });
+}
+  </script>
+</body>
+</html>

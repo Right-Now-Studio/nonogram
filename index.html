@@ -202,6 +202,52 @@ function cellDims(size) {
         return { C: 30, cW: 22, cF: 11, xF: 11 };
     return { C: 20, cW: 16, cF: 9, xF: 9 };
 }
+// Math-based cell detection — always works even on thick borders
+function cellFromMath(el, clientX, clientY, size, mLen) {
+    if (!el)
+        return null;
+    var rect = el.getBoundingClientRect();
+    var d = cellDims(size);
+    var lx = clientX - rect.left;
+    var ly = clientY - rect.top;
+    var clueW = mLen * d.cW;
+    var clueH = mLen * 17;
+    var cx = lx - clueW;
+    var cy = ly - clueH;
+    // Clamp to grid bounds rather than returning null — handles border hits
+    cx = Math.max(0, Math.min(cx, size * d.C - 1));
+    cy = Math.max(0, Math.min(cy, size * d.C - 1));
+    // Only reject if clearly outside the whole grid element
+    if (lx < 0 || ly < clueH - 4 || lx > rect.width + 4 || ly > rect.height + 4)
+        return null;
+    var col = Math.floor(cx / d.C);
+    var row = Math.floor(cy / d.C);
+    if (col < 0)
+        col = 0;
+    if (col >= size)
+        col = size - 1;
+    if (row < 0)
+        row = 0;
+    if (row >= size)
+        row = size - 1;
+    return [row, col];
+}
+// Uses browser hit-testing via elementFromPoint with wide spiral for fat-finger tolerance
+function cellFromPointer(clientX, clientY, attr) {
+    attr = attr || "data-cell";
+    var offsets = [[0, 0], [8, 0], [-8, 0], [0, 8], [0, -8], [8, 8], [-8, 8], [8, -8], [-8, -8], [14, 0], [-14, 0], [0, 14], [0, -14], [14, 7], [-14, 7], [7, 14], [7, -14]];
+    for (var i = 0; i < offsets.length; i++) {
+        var el = document.elementFromPoint(clientX + offsets[i][0], clientY + offsets[i][1]);
+        while (el && el.tagName !== "TABLE") {
+            if (el.hasAttribute && el.hasAttribute(attr)) {
+                var parts = el.getAttribute(attr).split(",");
+                return [parseInt(parts[0], 10), parseInt(parts[1], 10)];
+            }
+            el = el.parentElement;
+        }
+    }
+    return null;
+}
 // ── Storage ───────────────────────────────────────────────────────────────────
 var SK = "ngram-v9", CK = "ngram-c-v9";
 function loadSave() {
@@ -479,7 +525,7 @@ function Menu(props) {
     var T = props.T, cats = props.cats, totS = props.totS, totP = props.totP, catProg = props.catProg, onCat = props.onCat, onSettings = props.onSettings, onCreate = props.onCreate;
     var tap = useTap();
     var pct = totP > 0 ? (totS / totP) * 100 : 0;
-    return (React.createElement("div", { style: { minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", padding: "36px 24px 24px", fontFamily: "'Courier New',monospace", userSelect: "none", WebkitUserSelect: "none" } },
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", padding: "36px 24px 24px", fontFamily: "'Courier New',monospace", userSelect: "none", WebkitUserSelect: "none", overflowY: "auto" } },
         React.createElement("style", { dangerouslySetInnerHTML: { __html: ".tap{-webkit-tap-highlight-color:transparent;transition:filter .12s}.tap:active{filter:brightness(.88)}@keyframes fu{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}" } }),
         React.createElement("div", { style: { textAlign: "center", marginBottom: 24 } },
             React.createElement("div", { style: { fontSize: 10, letterSpacing: "0.28em", color: T.dim, textTransform: "uppercase", marginBottom: 6 } }, "Logic Puzzle"),
@@ -528,7 +574,7 @@ function Menu(props) {
             React.createElement("div", { className: "tap", style: { background: "none", border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: .38 } },
                 React.createElement("div", { style: { fontSize: 13, color: T.sub, letterSpacing: "0.1em", textTransform: "uppercase" } }, "How to Play"),
                 React.createElement("div", { style: { fontSize: 22, color: T.dim } }, "\u203A"))),
-        React.createElement("div", { style: { paddingTop: 20, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.5-alpha")));
+        React.createElement("div", { style: { paddingTop: 20, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.6-alpha")));
 }
 // ── Category ──────────────────────────────────────────────────────────────────
 function Category(props) {
@@ -538,13 +584,11 @@ function Category(props) {
     var cdel = cdState[0];
     var setCdel = cdState[1];
     var done = cat.puzzles.filter(function (_, i) { return solvedMap[cat.id + "_" + i]; }).length;
-    return (React.createElement("div", { style: { minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "'Courier New',monospace", padding: "40px 24px", userSelect: "none", WebkitUserSelect: "none" } },
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "'Courier New',monospace", padding: "40px 24px", userSelect: "none", WebkitUserSelect: "none", overflowY: "auto" } },
         React.createElement("style", { dangerouslySetInnerHTML: { __html: ".tap{-webkit-tap-highlight-color:transparent;transition:filter .12s}.tap:active{filter:brightness(.88)}" } }),
         React.createElement("div", { style: { width: "100%", maxWidth: 320, display: "flex", alignItems: "center", marginBottom: 32 } },
             React.createElement("button", { style: { background: "none", border: "none", color: T.sub, fontFamily: "'Courier New',monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", padding: "8px 0", WebkitTapHighlightColor: "transparent" }, onTouchStart: tap.ts, onTouchEnd: tap.te(onBack), onClick: onBack }, "Back"),
-            React.createElement("div", { style: { flex: 1, textAlign: "center", fontSize: 13, color: T.txt, letterSpacing: "0.14em" } },
-                cat.label,
-                " PUZZLES"),
+            React.createElement("div", { style: { flex: 1, textAlign: "center", fontSize: 13, color: T.txt, letterSpacing: "0.14em" } }, cat.id === "custom" ? cat.label : (cat.label + " PUZZLES")),
             React.createElement("div", { style: { fontSize: 11, color: T.sub } },
                 done,
                 "/",
@@ -564,7 +608,7 @@ function Category(props) {
                         sol && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 5, background: T.accBg, borderRadius: 4, padding: "4px 8px" } },
                             React.createElement("span", { style: { fontSize: 14, color: T.acc } }, "\u2713"),
                             React.createElement("span", { style: { fontSize: 11, color: T.acc, letterSpacing: "0.1em" } }, "SOLVED")),
-                        onDel && React.createElement("div", { style: { fontSize: 16, color: T.err, padding: "0 6px", cursor: "pointer" }, onTouchStart: function (e) { e.stopPropagation(); }, onTouchEnd: function (e) { e.stopPropagation(); setCdel(i); } }, "x"),
+                        onDel && React.createElement("div", { style: { fontSize: 11, color: T.err, padding: "4px 8px", cursor: "pointer", letterSpacing: "0.08em", border: "1px solid " + T.err, borderRadius: 4 }, onTouchStart: function (e) { e.stopPropagation(); }, onTouchEnd: function (e) { e.stopPropagation(); setCdel(i); } }, "DEL"),
                         React.createElement("div", { style: { fontSize: 22, color: T.dim } }, "\u203A"))),
                 cdel === i && (React.createElement("div", { style: { background: T.sur, border: "1px solid " + T.err, borderRadius: 8, padding: "14px 16px", marginTop: 4 } },
                     React.createElement("div", { style: { fontSize: 11, color: T.err, marginBottom: 12 } },
@@ -589,7 +633,21 @@ function PuzzleGrid(props) {
     var rClues = getClues(puzzle.solution);
     var cClues = getClues(getCols(puzzle.solution));
     var mLen = Math.max.apply(null, rClues.map(function (c) { return c.length; }));
-    return (React.createElement("div", { ref: gridRef, style: { touchAction: "none", outline: isSolved ? "2px solid " + T.ring : "2px solid transparent", outlineOffset: 3, borderRadius: 3 } },
+    // Solved view: hide clues, scale up cells to fill ~260px
+    if (isSolved) {
+        var sC = Math.min(40, Math.floor(260 / puzzle.size));
+        return (React.createElement("div", { ref: gridRef, style: { outline: "3px solid " + T.ring, outlineOffset: 4, borderRadius: 4, animation: "fi .4s ease" } },
+            React.createElement("table", { style: { borderCollapse: "collapse", tableLayout: "fixed" } },
+                React.createElement("tbody", null, puzzle.solution.map(function (_, r) {
+                    return (React.createElement("tr", { key: r }, puzzle.solution[r].map(function (_, c) {
+                        var val = grid[r][c];
+                        var t5c = (c + 1) % 5 === 0 && c !== puzzle.size - 1;
+                        var t5r = (r + 1) % 5 === 0 && r !== puzzle.size - 1;
+                        return React.createElement("td", { key: c, style: { width: sC, height: sC, background: val === 1 ? T.fill : T.empty, border: "1px solid " + T.bdr, borderRight: t5c ? "2px solid " + T.bdrS : "1px solid " + T.bdr, borderBottom: t5r ? "2px solid " + T.bdrS : "1px solid " + T.bdr, boxSizing: "border-box" } });
+                    })));
+                })))));
+    }
+    return (React.createElement("div", { ref: gridRef, style: { touchAction: "none", outline: "2px solid transparent", outlineOffset: 3, borderRadius: 3 } },
         React.createElement("table", { style: { borderCollapse: "collapse", tableLayout: "fixed" } },
             React.createElement("thead", null,
                 React.createElement("tr", null,
@@ -624,6 +682,26 @@ function PuzzleGrid(props) {
             })))));
 }
 // ── Puzzle Screen ─────────────────────────────────────────────────────────────
+function Confetti(props) {
+    var T = props.T;
+    var colors = [T.acc, "#FFD166", "#EF476F", "#118AB2", "#06D6A0", "#FF9F1C", "#E8E4DC"];
+    var particles = Array.from({ length: 22 }, function (_, i) {
+        var angle = ((i / 22) * 360);
+        var dist = 40 + Math.random() * 80;
+        var tx = Math.cos(angle * Math.PI / 180) * dist;
+        var ty = Math.sin(angle * Math.PI / 180) * dist - 60;
+        var size = 5 + Math.random() * 6;
+        var color = colors[i % colors.length];
+        var delay = (Math.random() * 0.15).toFixed(2);
+        var dur = (0.5 + Math.random() * 0.4).toFixed(2);
+        return { tx: tx, ty: ty, size: size, color: color, delay: delay, dur: dur, rot: Math.floor(Math.random() * 360) };
+    });
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, pointerEvents: "none", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 } },
+        React.createElement("style", { dangerouslySetInnerHTML: { __html: "@keyframes cf{0%{transform:translate(0,0) rotate(0deg);opacity:1}100%{transform:translate(var(--tx),var(--ty)) rotate(var(--rot));opacity:0}}" } }),
+        particles.map(function (p, i) {
+            return (React.createElement("div", { key: i, style: { "--tx": p.tx + "px", "--ty": p.ty + "px", "--rot": p.rot + "deg", position: "absolute", width: p.size, height: p.size, borderRadius: p.size > 8 ? "50%" : 2, background: p.color, animation: "cf " + p.dur + "s " + p.delay + "s ease-out both" } }));
+        })));
+}
 function PuzzleScreen(props) {
     var puzzle = props.puzzle, grid = props.grid, isSolved = props.isSolved, initTimer = props.initTimer, running = props.running;
     var T = props.T, sett = props.sett, canU = props.canU, canR = props.canR;
@@ -643,6 +721,14 @@ function PuzzleScreen(props) {
     var snap = useRef(grid);
     snap.current = grid;
     var drag = useRef({ on: false, action: null, sR: 0, sC: 0, axis: null, path: [], set: {}, orig: null });
+    var wasAlreadySolved = useRef(isSolved);
+    var cs = useState(false);
+    var showConfetti = cs[0];
+    var setShowConfetti = cs[1];
+    var mhs = useState(false);
+    var showMarkMenu = mhs[0];
+    var setShowMarkMenu = mhs[1];
+    var mhTimerRef = useRef(null);
     useEffect(function () {
         if (!running || !sett.showTimer)
             return;
@@ -650,29 +736,18 @@ function PuzzleScreen(props) {
         return function () { clearInterval(id); };
     }, [running, sett.showTimer]);
     useEffect(function () { return function () { tiRef.current(eRef.current); }; }, []);
-    useEffect(function () { if (isSolved)
-        tiRef.current(eRef.current); }, [isSolved]);
+    useEffect(function () {
+        if (isSolved && !wasAlreadySolved.current) {
+            setShowConfetti(true);
+            setTimeout(function () { setShowConfetti(false); }, 1200);
+        }
+        if (isSolved)
+            tiRef.current(eRef.current);
+    }, [isSolved]);
     function cellFromPoint(clientX, clientY) {
-        var el = gRef.current;
-        if (!el)
-            return null;
-        var rect = el.getBoundingClientRect();
-        var lx = clientX - rect.left;
-        var ly = clientY - rect.top;
-        var d = cellDims(puzzle.size);
         var rClues = getClues(puzzle.solution);
         var mLen = Math.max.apply(null, rClues.map(function (cl) { return cl.length; }));
-        var clueW = mLen * d.cW;
-        var clueH = mLen * 17;
-        var cx = lx - clueW;
-        var cy = ly - clueH;
-        if (cx < 0 || cy < 0)
-            return null;
-        var col = Math.floor(cx / d.C);
-        var row = Math.floor(cy / d.C);
-        if (col < 0 || col >= puzzle.size || row < 0 || row >= puzzle.size)
-            return null;
-        return [row, col];
+        return cellFromMath(gRef.current, clientX, clientY, puzzle.size, mLen);
     }
     var onPD = useCallback(function (e) {
         if (isSolved)
@@ -770,22 +845,46 @@ function PuzzleScreen(props) {
         el.addEventListener("pointercancel", onPU);
         return function () { el.removeEventListener("pointerdown", onPD); el.removeEventListener("pointermove", onPM); el.removeEventListener("pointerup", onPU); el.removeEventListener("pointercancel", onPU); };
     }, [onPD, onPM, onPU]);
+    function clearAllMarks() {
+        var next = snap.current.map(function (row) { return row.map(function (v) { return v === 4 ? 0 : v; }); });
+        onCommit(next);
+        setShowMarkMenu(false);
+    }
+    function onMarkTouchStart(e) {
+        mhTimerRef.current = setTimeout(function () { setShowMarkMenu(true); }, 500);
+        tap.ts(e);
+    }
+    function onMarkTouchEnd(e) {
+        if (mhTimerRef.current) {
+            clearTimeout(mhTimerRef.current);
+            mhTimerRef.current = null;
+        }
+        if (!showMarkMenu)
+            tap.te(function () { setMode("marker"); })(e);
+    }
     function ib(en, hi) { return { background: "none", border: "1px solid " + (en ? (hi ? T.acc : T.bdr) : T.bdr), color: en ? (hi ? T.acc : T.txt) : T.dim, borderRadius: 6, padding: "8px 14px", fontFamily: "'Courier New',monospace", fontSize: 13, cursor: en ? "pointer" : "default", WebkitTapHighlightColor: "transparent", opacity: en ? 1 : .3 }; }
     var modes = [["fill", "Fill"], ["marker", "Mark"], ["cross", "X"]];
     return (React.createElement("div", { style: { position: "fixed", inset: 0, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'Courier New',monospace", padding: "16px", overflowY: "auto", userSelect: "none", WebkitUserSelect: "none" } },
         React.createElement("style", { dangerouslySetInnerHTML: { __html: "@keyframes fi{from{opacity:0}to{opacity:1}}@keyframes su{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}.ib{-webkit-tap-highlight-color:transparent;transition:filter .1s}.ib:active{filter:brightness(.8)}.mp{font-family:'Courier New',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border:none;padding:10px 16px;transition:background .15s,color .15s;-webkit-tap-highlight-color:transparent}" } }),
+        showConfetti && React.createElement(Confetti, { T: T }),
+        showMarkMenu && (React.createElement("div", { style: { position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.5)" }, onClick: function () { setShowMarkMenu(false); } },
+            React.createElement("div", { style: { background: T.sur, border: "1px solid " + T.bdr, borderRadius: 12, padding: "20px", minWidth: 220, textAlign: "center" }, onClick: function (e) { e.stopPropagation(); } },
+                React.createElement("div", { style: { fontSize: 11, color: T.sub, letterSpacing: "0.14em", marginBottom: 16 } }, "MARK TOOL"),
+                React.createElement("div", { className: "tap", style: { background: T.err, borderRadius: 8, padding: "12px", cursor: "pointer", marginBottom: 8 }, onTouchStart: tap.ts, onTouchEnd: tap.te(clearAllMarks), onClick: clearAllMarks },
+                    React.createElement("div", { style: { fontSize: 13, color: "#fff", letterSpacing: "0.08em" } }, "Clear All Marks")),
+                React.createElement("div", { className: "tap", style: { border: "1px solid " + T.bdr, borderRadius: 8, padding: "12px", cursor: "pointer" }, onTouchStart: tap.ts, onTouchEnd: tap.te(function () { setShowMarkMenu(false); }), onClick: function () { setShowMarkMenu(false); } },
+                    React.createElement("div", { style: { fontSize: 13, color: T.sub, letterSpacing: "0.08em" } }, "Cancel"))))),
         React.createElement("div", { style: { width: "100%", maxWidth: 440, display: "flex", alignItems: "center", gap: 8, marginBottom: 14 } },
             React.createElement("button", { className: "ib", style: { background: "none", border: "none", color: T.sub, fontFamily: "'Courier New',monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", padding: "8px 0", flexShrink: 0 }, onTouchStart: tap.ts, onTouchEnd: tap.te(onBack), onClick: onBack }, "Back"),
             React.createElement("div", { style: { flex: 1, textAlign: "center", fontSize: 13, color: T.txt, letterSpacing: "0.14em" } }, isSolved ? puzzle.name.toUpperCase() : "???"),
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexShrink: 0 } },
-                isSolved ? React.createElement("div", { style: { fontSize: 11, color: T.acc, letterSpacing: "0.1em", animation: "fi .4s ease" } }, "SOLVED") : sett.showTimer && React.createElement("div", { style: { fontSize: 12, color: running ? T.sub : T.dim, fontVariantNumeric: "tabular-nums", letterSpacing: "0.05em", minWidth: 40, textAlign: "right" } }, fmtTime(elapsed)),
+                !isSolved && sett.showTimer && React.createElement("div", { style: { fontSize: 12, color: running ? T.sub : T.dim, fontVariantNumeric: "tabular-nums", letterSpacing: "0.05em", minWidth: 40, textAlign: "right" } }, fmtTime(elapsed)),
                 React.createElement("button", { className: "ib", style: { background: "none", border: "none", color: T.sub, cursor: "pointer", padding: "4px 6px", display: "flex", alignItems: "center" }, onTouchStart: tap.ts, onTouchEnd: tap.te(onSettings), onClick: onSettings },
                     React.createElement(GearIcon, { size: 18, color: T.sub })))),
-        isSolved && sett.showTimer && React.createElement("div", { style: { fontSize: 11, color: T.sub, letterSpacing: "0.12em", marginBottom: 10, animation: "fi .5s ease" } },
-            "Completed in ",
-            fmtTime(elapsed)),
+        isSolved && (React.createElement("div", { style: { fontSize: 11, fontWeight: "bold", color: T.dim, letterSpacing: "0.12em", marginBottom: 10, animation: "fi .5s ease", textAlign: "center" } }, sett.showTimer ? ("SOLVED | " + fmtTime(elapsed)) : "SOLVED")),
         !isSolved && (React.createElement("div", { style: { display: "flex", border: "1px solid " + T.bdr, borderRadius: 6, overflow: "hidden", marginBottom: 14 } }, modes.map(function (m, i) {
-            return React.createElement("button", { key: m[0], className: "mp", onTouchStart: tap.ts, onTouchEnd: tap.te(function () { setMode(m[0]); }), onClick: function () { setMode(m[0]); }, style: { background: mode === m[0] ? T.bBg : "transparent", color: mode === m[0] ? T.bFg : m[0] === "marker" ? T.acc : T.sub, borderRight: i < 2 ? "1px solid " + T.bdr : "none" } }, m[1]);
+            var isMark = m[0] === "marker";
+            return React.createElement("button", { key: m[0], className: "mp", onTouchStart: isMark ? onMarkTouchStart : tap.ts, onTouchEnd: isMark ? onMarkTouchEnd : tap.te(function () { setMode(m[0]); }), onClick: function () { setMode(m[0]); }, style: { background: mode === m[0] ? T.bBg : "transparent", color: mode === m[0] ? T.bFg : m[0] === "marker" ? T.acc : T.sub, borderRight: i < 2 ? "1px solid " + T.bdr : "none" } }, m[1]);
         }))),
         React.createElement(PuzzleGrid, { puzzle: puzzle, grid: grid, isSolved: isSolved, T: T, gridRef: gRef, dataAttr: "data-cell" }),
         isSolved && !sett.adsRemoved && React.createElement("div", { style: { marginTop: 16, width: "100%", maxWidth: 440, display: "flex", justifyContent: "center", animation: "fi .6s ease" } },
@@ -798,8 +897,8 @@ function PuzzleScreen(props) {
             isSolved && (React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center", animation: "su .3s ease" } },
                 onNext && React.createElement("button", { className: "ib", style: ib(true, true), onTouchStart: tap.ts, onTouchEnd: tap.te(onNext), onClick: onNext }, "Next Puzzle"),
                 React.createElement("button", { className: "ib", style: ib(true, false), onTouchStart: tap.ts, onTouchEnd: tap.te(onReset), onClick: onReset }, "Reset and Replay"))),
-            React.createElement("div", { style: { fontSize: 10, color: T.dim, letterSpacing: "0.1em", textAlign: "center" } }, isSolved ? "PUZZLE COMPLETE" : "DRAG TO FILL - BACKTRACK TO ERASE - MARK PLANS MOVES")),
-        React.createElement("div", { style: { marginTop: 20, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.5-alpha")));
+            React.createElement("div", { style: { fontSize: 10, color: T.dim, letterSpacing: "0.1em", textAlign: "center" } }, isSolved ? "PUZZLE COMPLETE" : "DRAG TO FILL — BACKTRACK TO ERASE — HOLD MARK TO CLEAR")),
+        React.createElement("div", { style: { marginTop: 20, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.6-alpha")));
 }
 // ── Creator ───────────────────────────────────────────────────────────────────
 function Creator(props) {
@@ -853,25 +952,7 @@ function Creator(props) {
         return; var p = ptr + 1; setPtr(p); setGrid(hist[p]); setSaveState("idle"); }
     function doClear() { commitG(emptyGrid(size)); }
     function cellFromPoint(clientX, clientY) {
-        var el = gRef.current;
-        if (!el)
-            return null;
-        var rect = el.getBoundingClientRect();
-        var lx = clientX - rect.left;
-        var ly = clientY - rect.top;
-        var d = cellDims(size);
-        var fixedML = Math.max(Math.ceil(size / 2), 1);
-        var clueW = fixedML * d.cW;
-        var clueH = fixedML * 17;
-        var cx = lx - clueW;
-        var cy = ly - clueH;
-        if (cx < 0 || cy < 0)
-            return null;
-        var col = Math.floor(cx / d.C);
-        var row = Math.floor(cy / d.C);
-        if (col < 0 || col >= size || row < 0 || row >= size)
-            return null;
-        return [row, col];
+        return cellFromMath(gRef.current, clientX, clientY, size, mLen);
     }
     var onPD = useCallback(function (e) {
         e.preventDefault();
@@ -987,8 +1068,9 @@ function Creator(props) {
                 React.createElement("button", { style: { background: "none", border: "none", color: T.sub, fontFamily: "'Courier New',monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", padding: "8px 0", WebkitTapHighlightColor: "transparent" }, onTouchStart: tap.ts, onTouchEnd: tap.te(onBack), onClick: onBack }, "Back"),
                 React.createElement("div", { style: { flex: 1, textAlign: "center", fontSize: 13, color: T.txt, letterSpacing: "0.14em" } }, "CREATE PUZZLE"),
                 React.createElement("div", { style: { width: 48 } })),
-            React.createElement("div", { style: { marginBottom: 16, height: 36 } },
-                React.createElement("input", { className: "ci", style: { color: T.txt, borderBottomColor: T.bdr }, placeholder: "Puzzle name", value: name, onChange: function (e) { setName(e.target.value); setSaveState("idle"); }, onFocus: function (e) { e.target.style.borderBottomColor = T.acc; }, onBlur: function (e) { e.target.style.borderBottomColor = T.bdr; } })),
+            React.createElement("div", { style: { marginBottom: 16 } },
+                React.createElement("div", { style: { fontSize: 9, color: T.dim, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 6 } }, "Puzzle Name"),
+                React.createElement("input", { className: "ci", style: { color: T.txt, borderBottomColor: T.bdr }, value: name, onChange: function (e) { setName(e.target.value); setSaveState("idle"); }, onFocus: function (e) { e.target.style.borderBottomColor = T.acc; }, onBlur: function (e) { e.target.style.borderBottomColor = T.bdr; } })),
             React.createElement("div", { style: { display: "flex", gap: 8, justifyContent: "center", marginBottom: 16 } }, [5, 7, 10, 15].map(function (s) {
                 return React.createElement("div", { key: s, className: "tap", style: { background: size === s ? T.bBg : T.sur, border: "1px solid " + (size === s ? T.acc : T.bdr), color: size === s ? T.bFg : T.sub, borderRadius: 6, padding: "8px 14px", fontSize: 11, cursor: "pointer" }, onTouchStart: tap.ts, onTouchEnd: tap.te(function () { chgSize(s); }), onClick: function () { chgSize(s); } },
                     s,
@@ -1042,8 +1124,8 @@ function Settings(props) {
             React.createElement("div", { style: { position: "absolute", top: 3, left: val ? 22 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } })));
     }
     var themeOpts = [{ v: "system", label: "Follow System", desc: "Matches your device" }, { v: "light", label: "Always Light", desc: "Light bg, dark text" }, { v: "dark", label: "Always Dark", desc: "Dark bg, light text" }];
-    var gameOpts = [{ k: "showTimer", lb: "Show Timer", desc: "Count up while solving" }, { k: "autoFillCrosses", lb: "Auto-fill Crosses", desc: "Mark complete rows" }];
-    return (React.createElement("div", { style: { minHeight: "100vh", background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "'Courier New',monospace", padding: "40px 24px", userSelect: "none", WebkitUserSelect: "none" } },
+    var gameOpts = [{ k: "showTimer", lb: "Show Timer", desc: "" }, { k: "autoFillCrosses", lb: "Auto-fill Crosses", desc: "Mark complete rows and columns" }];
+    return (React.createElement("div", { style: { position: "fixed", inset: 0, background: T.bg, display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "'Courier New',monospace", padding: "40px 24px", userSelect: "none", WebkitUserSelect: "none", overflowY: "auto" } },
         React.createElement("style", { dangerouslySetInnerHTML: { __html: ".tap{-webkit-tap-highlight-color:transparent;transition:filter .12s}.tap:active{filter:brightness(.92)}" } }),
         React.createElement("div", { style: { width: "100%", maxWidth: 320, display: "flex", alignItems: "center", marginBottom: 32 } },
             React.createElement("button", { style: { background: "none", border: "none", color: T.sub, fontFamily: "'Courier New',monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", padding: "8px 0", WebkitTapHighlightColor: "transparent" }, onTouchStart: tap.ts, onTouchEnd: tap.te(onBack), onClick: onBack }, "Back"),
@@ -1064,8 +1146,8 @@ function Settings(props) {
             React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, gameOpts.map(function (o) {
                 return (React.createElement("div", { key: o.k, style: { background: T.sur, border: "1px solid " + T.bdr, borderRadius: 8, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" } },
                     React.createElement("div", null,
-                        React.createElement("div", { style: { fontSize: 13, color: T.txt, letterSpacing: "0.06em", marginBottom: 3 } }, o.lb),
-                        React.createElement("div", { style: { fontSize: 10, color: T.sub } }, o.desc)),
+                        React.createElement("div", { style: { fontSize: 13, color: T.txt, letterSpacing: "0.06em", marginBottom: o.desc ? 3 : 0 } }, o.lb),
+                        o.desc && React.createElement("div", { style: { fontSize: 10, color: T.sub } }, o.desc)),
                     React.createElement(Toggle, { val: sett[o.k], fn: function () { onSet(o.k, !sett[o.k]); } })));
             }))),
         React.createElement("div", { style: { width: "100%", maxWidth: 320, marginBottom: 28 } },
@@ -1097,7 +1179,7 @@ function Settings(props) {
                         React.createElement("div", { className: "tap", style: { flex: 1, border: "1px solid " + T.bdr, borderRadius: 6, padding: "10px", textAlign: "center", cursor: "pointer" }, onTouchStart: tap.ts, onTouchEnd: tap.te(function () { setCfm(false); }), onClick: function () { setCfm(false); } },
                             React.createElement("span", { style: { fontSize: 12, color: T.sub } }, "Cancel"))))),
         !sett.adsRemoved && React.createElement(AdBanner, { T: T, label: "Ad - Settings" }),
-        React.createElement("div", { style: { marginTop: "auto", paddingTop: 40, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.5-alpha")));
+        React.createElement("div", { style: { marginTop: "auto", paddingTop: 40, fontSize: 9, color: T.dim, letterSpacing: "0.18em" } }, "v0.9.6-alpha")));
 }
 ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
   </script>

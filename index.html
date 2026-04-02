@@ -517,10 +517,11 @@ function App() {
 // ── TopBar ────────────────────────────────────────────────────────────────────
 function TopBar(props) {
     var T = props.T, left = props.left, title = props.title, right = props.right;
-    return (React.createElement("div", { style: { position: "sticky", top: 0, zIndex: 10, height: 52, display: "flex", alignItems: "center", padding: "0 12px", gap: 6, background: T.bg, borderBottom: "1px solid " + T.bdr, fontFamily: "'Courier New',monospace", flexShrink: 0, WebkitUserSelect: "none", userSelect: "none" } },
-        React.createElement("div", { style: { width: 80, display: "flex", alignItems: "center", flexShrink: 0 } }, left),
-        React.createElement("div", { style: { flex: 1, textAlign: "center", fontSize: 13, color: T.txt, letterSpacing: "0.12em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "bold" } }, title),
-        React.createElement("div", { style: { width: 80, display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0 } }, right)));
+    return (React.createElement("div", { style: { position: "sticky", top: 0, zIndex: 10, paddingTop: "env(safe-area-inset-top,0px)", background: T.bg, borderBottom: "1px solid " + T.bdr, flexShrink: 0, WebkitUserSelect: "none", userSelect: "none" } },
+        React.createElement("div", { style: { height: 52, display: "flex", alignItems: "center", padding: "0 12px", gap: 6, fontFamily: "'Courier New',monospace" } },
+            React.createElement("div", { style: { width: 80, display: "flex", alignItems: "center", flexShrink: 0 } }, left),
+            React.createElement("div", { style: { flex: 1, textAlign: "center", fontSize: 13, color: T.txt, letterSpacing: "0.12em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: "bold" } }, title),
+            React.createElement("div", { style: { width: 80, display: "flex", alignItems: "center", justifyContent: "flex-end", flexShrink: 0 } }, right))));
 }
 // ── GearIcon ──────────────────────────────────────────────────────────────────
 function GearIcon(props) {
